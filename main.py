@@ -3,6 +3,11 @@ import taglib
 import json
 import glob
 
+def update_tags(taglib_file, song_db):
+    taglib_file.tags["GENRE"] = song_db["genre"]
+    taglib_file.tags["ARTIST"] = song_db["artist"]
+    taglib_file.save()
+
 def remove_suffixes(title: str, suffixes: list[str]):
     fixed_string = title
 
@@ -13,8 +18,6 @@ def remove_suffixes(title: str, suffixes: list[str]):
             fixed_string = fixed_string.strip()
 
     return fixed_string
-
-
 
 def find_match(db: dict, title: str):
     lower_title = title.lower()
@@ -70,19 +73,42 @@ def main():
     flacs = glob.glob(f"{input_folder}/**/*.flac", recursive=True)
 
     not_found = []
-    found = []
+
+    found_count = 0
+
+    print("Processing...")
+
+    print("FOUND MATCHES")
 
     for flac in flacs:
         with taglib.File(flac) as song:
+
             found_match = find_match(db, song.tags["TITLE"][0])
 
             if found_match:
-                found.append(flac)
+                old_title = song.tags["TITLE"][0]
+                old_artist = song.tags["ARTIST"][0]
+
+                if "GENRE" in song.tags:
+                    old_genre = song.tags["GENRE"][0]
+                else:
+                    old_genre = "No Genre"
+
+                update_tags(song, found_match)
+
+                print(f"{old_title} - {old_artist} => {found_match["artist"]}, {old_genre} => {found_match["genre"]}")
+                found_count += 1
             else:
                 not_found.append(flac)
 
-    print(f"found {len(found)}")
-    print(f"not found {len(not_found)}")
+    print()
+    print("NEEDS MANUAL INTERVENTION")
+    for file in not_found:
+        print(file)
+
+    print()
+    print("COMPLETE")
+    print(f"Updated: {found_count}, Unchanged: {len(not_found)}")
 
 
 if __name__ == "__main__":
