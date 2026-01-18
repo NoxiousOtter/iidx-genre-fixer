@@ -3,46 +3,58 @@ import taglib
 import json
 import glob
 
-def find_match(db: dict, title: str, artist: str):
+def remove_suffixes(title: str, suffixes: list[str]):
+    fixed_string = title
+
+    for suffix in suffixes:
+        if suffix in fixed_string:
+            index = fixed_string.find(suffix)
+            fixed_string = fixed_string[:index]
+            fixed_string = fixed_string.strip()
+
+    return fixed_string
+
+
+
+def find_match(db: dict, title: str):
     lower_title = title.lower()
-    lower_artist = artist.lower()
+
+    matches = 0
+    matched = None
 
     for song in db:
         lower_db_title = song["title"].lower()
-        lower_db_artist = song["artist"].lower()
         lower_db_ascii_title = song["title_ascii"].lower()
 
-        # if lower_db_artist != lower_artist:
-        #     continue
-
         if lower_db_title == lower_title:
-            return song
+            matches += 1
+            matched = song
+            continue
+
         if lower_db_ascii_title == lower_title:
-            return song
+            matches += 1
+            matched = song
+            continue
 
-        # if " (" in lower_title:
-        #     index = lower_title.find(" (")
-        #     space_remove = lower_title[:index] + lower_title[index + 1:]
-        #     if lower_db_title == space_remove:
-        #         return song
-        #     if lower_db_ascii_title == space_remove:
-        #         return song
-        #
-        #     everything_remove = lower_title[:index]
-        #     if lower_db_title == everything_remove:
-        #         return song
-        #     if lower_db_ascii_title == everything_remove:
-        #         return song
-        #
-        # if "(" in lower_title:
-        #     index = lower_title.find("(")
-        #     everything_remove = lower_title[:index]
-        #     if lower_db_title == everything_remove:
-        #         return song
-        #     if lower_db_ascii_title == everything_remove:
-        #         return song
+        if " (" in lower_title:
+            index = lower_title.find(" (")
+            space_remove = lower_title[:index] + lower_title[index + 1:]
+            if lower_db_title == space_remove or lower_db_ascii_title == space_remove:
+                matches += 1
+                matched = song
+                continue
 
-    raise FileNotFoundError
+        removed_suffixes = remove_suffixes(lower_title, ["-original", "- original", "(original", "-extend", "- extend", "(extend"])
+        if lower_db_title == removed_suffixes or lower_db_ascii_title == removed_suffixes:
+            matches += 1
+            matched = song
+            continue
+
+    if matches > 1:
+        # Multiple songs with the same title, we cannot automatically apply the correction
+        matched = None
+
+    return matched
 
 def main():
     if len(sys.argv) != 3:
@@ -59,24 +71,18 @@ def main():
 
     not_found = []
     found = []
-    mismatch_artist = []
 
     for flac in flacs:
         with taglib.File(flac) as song:
-            try:
-                found_match = find_match(db, song.tags["TITLE"][0], song.tags["ARTIST"][0])
+            found_match = find_match(db, song.tags["TITLE"][0])
+
+            if found_match:
                 found.append(flac)
+            else:
+                not_found.append(flac)
 
-                if found_match["artist"] != song.tags["ARTIST"][0]:
-                    mismatch_artist.append(f"{song.tags["ARTIST"][0]} => {found_match["artist"]}")
-            except FileNotFoundError:
-                not_found.append(f"{song.tags["ARTIST"][0]} - {song.tags["TITLE"][0]}")
-
-    # print(f"found {len(found)}")
-    # print(f"not found {len(not_found)}")
-    #
-    for a in sorted(mismatch_artist):
-        print(a)
+    print(f"found {len(found)}")
+    print(f"not found {len(not_found)}")
 
 
 if __name__ == "__main__":
