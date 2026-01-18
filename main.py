@@ -47,7 +47,7 @@ def find_match(db: dict, title: str):
                 matched = song
                 continue
 
-        removed_suffixes = remove_suffixes(lower_title, ["-original", "- original", "(original", "-extend", "- extend", "(extend"])
+        removed_suffixes = remove_suffixes(lower_title, ["-original", "- original", "(original", "-extend", "- extend", "(extend", "(long", "-long", "〜Long", "Long.ver", "(full", "-full", "(extra"])
         if lower_db_title == removed_suffixes or lower_db_ascii_title == removed_suffixes:
             matches += 1
             matched = song
